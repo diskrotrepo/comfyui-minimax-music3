@@ -75,8 +75,10 @@ generation seed** across extensions (the song's identity, used by `%seed%` filen
 
 ### Extend specifics
 
-- **`continue_from_seconds`** — 0 continues from the end; > 0 **rewinds**: keeps only the first N seconds and
-  branches from there, discarding the rest.
+- **`continue_from_seconds`** — 0 continues from the end. **Negative backs up from the end** (`-5` drops the
+  last 5 seconds and continues from there — the everyday "that section went sideways" fix, no math needed).
+  Positive is absolute: keep only the first N seconds and branch from that point. After each run the node shows
+  the section span and total song length right on the node, so absolute positions are always visible.
 - **`prompt` / `lyrics`** — empty inherits the state's text (the safe default). Fill to steer the new section.
   Lyrics work best as a **superset** (original lyrics + new verses); the model aligns the sung audio to the
   sheet. Raise `cfg_scale` (try 2–4) to push a style change through against the song's momentum.

@@ -34,6 +34,8 @@ _PIPE = None
 # HF repo id by default; set MINIMAX_MUSIC3_PATH to a local diffusers dir (e.g. a Modal Volume path) to load offline.
 _MODEL_ID = os.environ.get("MINIMAX_MUSIC3_PATH", "MiniMaxAI/MiniMax-Music3")
 _STATE_EXT = ".mm3state"
+# The model emits 25 RVQ frames per second of audio; used to report song positions in the node UI.
+_FRAME_RATE = 25.0
 
 
 def _get_pipe():
@@ -63,9 +65,12 @@ def _run(prompt, lyrics, audio_duration, seed, prefix_frame_codes=None, prefix_k
     device = pipe._execution_device
     generator = torch.Generator(device=device).manual_seed(int(seed))
 
-    if prefix_frame_codes is not None and prefix_keep_seconds > 0:
-        frame_rate = float(getattr(pipe, "frame_rate", 25.0))
-        keep = max(1, int(round(prefix_keep_seconds * frame_rate)))
+    if prefix_frame_codes is not None and prefix_keep_seconds != 0:
+        frame_rate = float(getattr(pipe, "frame_rate", _FRAME_RATE))
+        keep = int(round(prefix_keep_seconds * frame_rate))
+        if prefix_keep_seconds < 0:  # negative = back up that many seconds from the end
+            keep += prefix_frame_codes.shape[0]
+        keep = max(1, min(keep, prefix_frame_codes.shape[0]))
         prefix_frame_codes = prefix_frame_codes[:keep]
 
     kwargs = dict(
@@ -172,6 +177,7 @@ class MiniMaxMusic3Generate:
     RETURN_TYPES = ("AUDIO", "MINIMAX_MM3_STATE")
     RETURN_NAMES = ("audio", "state")
     FUNCTION = "generate"
+    OUTPUT_NODE = True
     CATEGORY = "audio/MiniMax Music 3"
 
     def generate(self, prompt, lyrics, audio_duration, seed, cfg_scale=1.5, top_k=50, temperature=1.0,
@@ -179,7 +185,11 @@ class MiniMaxMusic3Generate:
         audio, frame_codes = _run(prompt, lyrics, audio_duration, seed,
                                   cfg_scale=cfg_scale, top_k=top_k, temperature=temperature,
                                   num_inference_steps=num_inference_steps)
-        return (audio, _bundle(frame_codes, prompt, lyrics, seed))
+        seconds = frame_codes.shape[0] / _FRAME_RATE
+        return {
+            "ui": {"text": [f"song: {seconds:.1f}s"]},
+            "result": (audio, _bundle(frame_codes, prompt, lyrics, seed)),
+        }
 
 
 class MiniMaxMusic3Extend:
@@ -215,9 +225,10 @@ class MiniMaxMusic3Extend:
                                "the new section.",
                 }),
                 "continue_from_seconds": ("FLOAT", {
-                    "default": 0.0, "min": 0.0, "max": 360.0, "step": 0.5,
-                    "tooltip": "0 = continue from the end of the song. > 0 = rewind: keep only the first N seconds "
-                               "and continue from there, discarding everything after that point.",
+                    "default": 0.0, "min": -360.0, "max": 360.0, "step": 0.5,
+                    "tooltip": "0 = continue from the end of the song. NEGATIVE = back up that many seconds from "
+                               "the end (e.g. -5 drops the last 5s and continues from there). Positive = absolute: "
+                               "keep only the first N seconds of the song and continue from that point.",
                 }),
                 "prompt": ("STRING", {"multiline": True, "default": ""}),
                 "lyrics": ("STRING", {"multiline": True, "default": ""}),
@@ -229,6 +240,7 @@ class MiniMaxMusic3Extend:
     RETURN_TYPES = ("AUDIO", "MINIMAX_MM3_STATE", "AUDIO")
     RETURN_NAMES = ("audio", "state", "new_audio")
     FUNCTION = "extend"
+    OUTPUT_NODE = True
     CATEGORY = "audio/MiniMax Music 3"
 
     def extend(self, state, audio_duration, seed, song_audio=None, continue_from_seconds=0.0, prompt="", lyrics="",
@@ -255,8 +267,13 @@ class MiniMaxMusic3Extend:
             raise
         if song_audio is not None:
             old = song_audio["waveform"]
-            if continue_from_seconds > 0:
-                old = old[..., : int(round(continue_from_seconds * song_audio["sample_rate"]))]
+            if continue_from_seconds != 0:
+                # Same clamping as the frame-code trim in `_run`: negative counts back from the end.
+                samples = old.shape[-1]
+                idx = int(round(continue_from_seconds * song_audio["sample_rate"]))
+                if continue_from_seconds < 0:
+                    idx += samples
+                old = old[..., : max(1, min(idx, samples))]
             full_audio = {
                 "waveform": torch.cat((old.to(new_audio["waveform"]), new_audio["waveform"]), dim=-1),
                 "sample_rate": new_audio["sample_rate"],
@@ -266,7 +283,15 @@ class MiniMaxMusic3Extend:
         # New state carries the full accumulated codes (prefix + new) so it can be extended again. The bundle keeps
         # the ORIGINAL generation seed (the song's identity, e.g. for %seed% filenames); `seed` here only controlled
         # the newly sampled frames.
-        return (full_audio, _bundle(frame_codes, prompt, lyrics, state["seed"]), new_audio)
+        total = frame_codes.shape[0] / _FRAME_RATE
+        section_start = total - new_audio["waveform"].shape[-1] / new_audio["sample_rate"]
+        label = f"section {section_start:.1f}s → {total:.1f}s · song is now {total:.1f}s"
+        if continue_from_seconds != 0:
+            label = f"rewound to {section_start:.1f}s · {label}"
+        return {
+            "ui": {"text": [label]},
+            "result": (full_audio, _bundle(frame_codes, prompt, lyrics, state["seed"]), new_audio),
+        }
 
 
 class MiniMaxMusic3SaveState:
