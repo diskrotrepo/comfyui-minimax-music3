@@ -53,7 +53,7 @@ def _get_pipe():
 
 
 def _run(prompt, lyrics, audio_duration, seed, prefix_frame_codes=None, prefix_keep_seconds=0.0,
-         cfg_scale=1.5, top_k=50, temperature=1.0):
+         cfg_scale=1.5, top_k=50, temperature=1.0, num_inference_steps=30):
     """Generate (optionally continuing `prefix_frame_codes`). Returns (AUDIO dict, frame_codes LongTensor[cpu]).
 
     `prefix_keep_seconds` > 0 rewinds the prefix to that timestamp first: only its first N seconds are replayed, so
@@ -76,6 +76,7 @@ def _run(prompt, lyrics, audio_duration, seed, prefix_frame_codes=None, prefix_k
         cfg_scale=float(cfg_scale),
         top_k=int(top_k),
         temperature=float(temperature),
+        num_inference_steps=int(num_inference_steps),
         # `frame_codes` is the fork's resumable continuation handle (see MiniMaxMusic3SemanticGenerationStep).
         output=["audios", "frame_codes"],
     )
@@ -147,6 +148,11 @@ def _sampling_widgets():
             "default": 1.0, "min": 0.05, "max": 3.0, "step": 0.05,
             "tooltip": "Sampling temperature; higher = more random. Reference recipe = 1.0.",
         }),
+        "num_inference_steps": ("INT", {
+            "default": 30, "min": 4, "max": 100,
+            "tooltip": "Flow-matching render steps per chunk. Fewer = faster rendering at slightly lower audio "
+                       "quality (~15 is a usable fast draft). 30 = reference quality.",
+        }),
     }
 
 
@@ -168,9 +174,11 @@ class MiniMaxMusic3Generate:
     FUNCTION = "generate"
     CATEGORY = "audio/MiniMax Music 3"
 
-    def generate(self, prompt, lyrics, audio_duration, seed, cfg_scale=1.5, top_k=50, temperature=1.0):
+    def generate(self, prompt, lyrics, audio_duration, seed, cfg_scale=1.5, top_k=50, temperature=1.0,
+                 num_inference_steps=30):
         audio, frame_codes = _run(prompt, lyrics, audio_duration, seed,
-                                  cfg_scale=cfg_scale, top_k=top_k, temperature=temperature)
+                                  cfg_scale=cfg_scale, top_k=top_k, temperature=temperature,
+                                  num_inference_steps=num_inference_steps)
         return (audio, _bundle(frame_codes, prompt, lyrics, seed))
 
 
@@ -224,7 +232,7 @@ class MiniMaxMusic3Extend:
     CATEGORY = "audio/MiniMax Music 3"
 
     def extend(self, state, audio_duration, seed, song_audio=None, continue_from_seconds=0.0, prompt="", lyrics="",
-               cfg_scale=1.5, top_k=50, temperature=1.0):
+               cfg_scale=1.5, top_k=50, temperature=1.0, num_inference_steps=30):
         # Empty override fields inherit the state's text; non-empty ones replace it for this and later extensions.
         prompt = prompt.strip() or state["prompt"]
         lyrics = lyrics.strip() or state["lyrics"]
@@ -234,6 +242,7 @@ class MiniMaxMusic3Extend:
                 prefix_frame_codes=state["frame_codes"],
                 prefix_keep_seconds=continue_from_seconds,
                 cfg_scale=cfg_scale, top_k=top_k, temperature=temperature,
+                num_inference_steps=num_inference_steps,
             )
         except ValueError as e:
             if "zero new audio frames" in str(e):
