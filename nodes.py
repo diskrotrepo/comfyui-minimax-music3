@@ -55,7 +55,7 @@ def _get_pipe():
 
 
 def _run(prompt, lyrics, audio_duration, seed, prefix_frame_codes=None, prefix_keep_seconds=0.0,
-         cfg_scale=1.5, top_k=50, temperature=1.0, num_inference_steps=30):
+         cfg_scale=1.5, top_k=50, temperature=1.0, num_inference_steps=30, min_new_seconds=0.0):
     """Generate (optionally continuing `prefix_frame_codes`). Returns (AUDIO dict, frame_codes LongTensor[cpu]).
 
     `prefix_keep_seconds` > 0 rewinds the prefix to that timestamp first: only its first N seconds are replayed, so
@@ -82,6 +82,7 @@ def _run(prompt, lyrics, audio_duration, seed, prefix_frame_codes=None, prefix_k
         top_k=int(top_k),
         temperature=float(temperature),
         num_inference_steps=int(num_inference_steps),
+        min_new_seconds=float(min_new_seconds),
         # `frame_codes` is the fork's resumable continuation handle (see MiniMaxMusic3SemanticGenerationStep).
         output=["audios", "frame_codes"],
     )
@@ -234,6 +235,12 @@ class MiniMaxMusic3Extend:
                 "lyrics": ("STRING", {"multiline": True, "default": ""}),
                 # Appended after prompt/lyrics so widget indices of workflows saved before these existed still align.
                 **_sampling_widgets(),
+                "force_continue": ("BOOLEAN", {
+                    "default": False,
+                    "tooltip": "Forbid the song from ending during this stage: the model must keep performing for "
+                               "the full audio_duration. Turn on for mid-song stages (the model loves to stop right "
+                               "after a chorus); leave off on the final stage so the song can end naturally.",
+                }),
             },
         }
 
@@ -244,7 +251,7 @@ class MiniMaxMusic3Extend:
     CATEGORY = "audio/MiniMax Music 3"
 
     def extend(self, state, audio_duration, seed, song_audio=None, continue_from_seconds=0.0, prompt="", lyrics="",
-               cfg_scale=1.5, top_k=50, temperature=1.0, num_inference_steps=30):
+               cfg_scale=1.5, top_k=50, temperature=1.0, num_inference_steps=30, force_continue=False):
         # Empty override fields inherit the state's text; non-empty ones replace it for this and later extensions.
         prompt = prompt.strip() or state["prompt"]
         lyrics = lyrics.strip() or state["lyrics"]
@@ -255,16 +262,28 @@ class MiniMaxMusic3Extend:
                 prefix_keep_seconds=continue_from_seconds,
                 cfg_scale=cfg_scale, top_k=top_k, temperature=temperature,
                 num_inference_steps=num_inference_steps,
+                min_new_seconds=float(audio_duration) if force_continue else 0.0,
             )
         except ValueError as e:
-            if "zero new audio frames" in str(e):
-                raise ValueError(
-                    "This song already reached its natural ending, so there is nothing to continue. "
-                    "Either rewind into it (`continue_from_seconds` > 0) and branch from mid-song, or regenerate "
-                    "the base song with more lyrics and/or a shorter `audio_duration` so it gets cut off "
-                    "mid-performance."
-                ) from e
-            raise
+            if "zero new audio frames" not in str(e):
+                raise
+            if song_audio is not None:
+                # In a stage chain, an already-finished song shouldn't kill the run: pass it through unchanged and
+                # flag it on the node. new_audio becomes a token of silence so downstream audio nodes stay valid.
+                silence = {
+                    "waveform": torch.zeros_like(song_audio["waveform"][..., : int(song_audio["sample_rate"] // 10)]),
+                    "sample_rate": song_audio["sample_rate"],
+                }
+                return {
+                    "ui": {"text": ["song had already ended — stage added nothing "
+                                    "(enable force_continue to push past the ending)"]},
+                    "result": (song_audio, state, silence),
+                }
+            raise ValueError(
+                "This song already reached its natural ending, so there is nothing to continue. "
+                "Rewind into it (negative `continue_from_seconds`, e.g. -5) to branch before the ending, or "
+                "enable `force_continue` to make the model keep performing past it."
+            ) from e
         if song_audio is not None:
             old = song_audio["waveform"]
             if continue_from_seconds != 0:
