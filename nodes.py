@@ -52,11 +52,20 @@ def _get_pipe():
     return _PIPE
 
 
-def _run(prompt, lyrics, audio_duration, seed, prefix_frame_codes=None):
-    """Generate (optionally continuing `prefix_frame_codes`). Returns (AUDIO dict, frame_codes LongTensor[cpu])."""
+def _run(prompt, lyrics, audio_duration, seed, prefix_frame_codes=None, prefix_keep_seconds=0.0):
+    """Generate (optionally continuing `prefix_frame_codes`). Returns (AUDIO dict, frame_codes LongTensor[cpu]).
+
+    `prefix_keep_seconds` > 0 rewinds the prefix to that timestamp first: only its first N seconds are replayed, so
+    generation branches from that point and everything after it is discarded.
+    """
     pipe = _get_pipe()
     device = pipe._execution_device
     generator = torch.Generator(device=device).manual_seed(int(seed))
+
+    if prefix_frame_codes is not None and prefix_keep_seconds > 0:
+        frame_rate = float(getattr(pipe, "frame_rate", 25.0))
+        keep = max(1, int(round(prefix_keep_seconds * frame_rate)))
+        prefix_frame_codes = prefix_frame_codes[:keep]
 
     kwargs = dict(
         prompt=prompt,
@@ -71,13 +80,20 @@ def _run(prompt, lyrics, audio_duration, seed, prefix_frame_codes=None):
 
     result = pipe(**kwargs)
 
-    # Modular pipelines return the requested outputs in order; be tolerant of tuple/list/attr shapes.
-    if isinstance(result, (list, tuple)):
+    # Modular pipelines return the requested outputs in order; be tolerant of dict/tuple/list/attr shapes.
+    if isinstance(result, dict):
+        audios, frame_codes = result["audios"], result["frame_codes"]
+    elif isinstance(result, (list, tuple)):
         audios, frame_codes = result[0], result[1]
     else:
         audios, frame_codes = result.audios, result.frame_codes
 
     # audios: [batch, channels, samples] float in [-1, 1] -> ComfyUI AUDIO wants exactly [B, C, samples].
+    # Depending on the diffusers build these come back as torch tensors or numpy arrays.
+    if not torch.is_tensor(audios):
+        audios = torch.as_tensor(audios)
+    if not torch.is_tensor(frame_codes):
+        frame_codes = torch.as_tensor(frame_codes)
     waveform = audios.detach().to("cpu", torch.float32)
     if waveform.ndim == 2:  # [C, samples] -> add batch
         waveform = waveform.unsqueeze(0)
@@ -134,8 +150,16 @@ class MiniMaxMusic3Generate:
 class MiniMaxMusic3Extend:
     """Continue a prior generation. `audio_duration` is how much NEW audio to add.
 
-    Prompt/lyrics come from the incoming STATE (they must match what the codes were generated under), so they
-    are not re-entered here. `seed` controls only the newly sampled frames.
+    Prompt/lyrics default to the incoming STATE's (matching the text the codes were generated under keeps the seam
+    coherent). The optional prompt/lyrics fields override that when non-empty — most usefully a longer lyric sheet
+    (the original plus new verses) once the song has sung everything it was given. `seed` controls only the newly
+    sampled frames.
+
+    Chaining: connect the previous stage's `audio` to `song_audio` and this node's `audio` output is the FULL song
+    (accumulated audio, rewound to `continue_from_seconds` if set, plus the new section); `new_audio` is just the new
+    section. Because `song_audio`->`audio` and `state`->`state` line up by type, a BYPASSED (Ctrl+B) Extend node
+    passes the song through untouched — so a long chain of Extend stages can have any subset of stages disabled.
+    Without `song_audio` connected, `audio` and `new_audio` are both just the new section.
     """
 
     @classmethod
@@ -145,21 +169,64 @@ class MiniMaxMusic3Extend:
                 "state": ("MINIMAX_MM3_STATE",),
                 "audio_duration": ("FLOAT", {"default": 30.0, "min": 1.0, "max": 360.0, "step": 1.0}),
                 "seed": ("INT", {"default": 0, "min": 0, "max": 0xFFFFFFFFFFFFFFFF}),
-            }
+            },
+            # Leave prompt/lyrics empty to continue under the state's own text (the safe default — mismatched text
+            # makes the seam incoherent). Fill them to steer this section, e.g. a LONGER lyric sheet (the original
+            # lyrics plus new verses) when the song has already sung everything it was given.
+            "optional": {
+                "song_audio": ("AUDIO", {
+                    "tooltip": "The full song audio so far (previous Generate/Extend `audio` output). When "
+                               "connected, this node's `audio` output is the assembled full song instead of just "
+                               "the new section.",
+                }),
+                "continue_from_seconds": ("FLOAT", {
+                    "default": 0.0, "min": 0.0, "max": 360.0, "step": 0.5,
+                    "tooltip": "0 = continue from the end of the song. > 0 = rewind: keep only the first N seconds "
+                               "and continue from there, discarding everything after that point.",
+                }),
+                "prompt": ("STRING", {"multiline": True, "default": ""}),
+                "lyrics": ("STRING", {"multiline": True, "default": ""}),
+            },
         }
 
-    RETURN_TYPES = ("AUDIO", "MINIMAX_MM3_STATE")
-    RETURN_NAMES = ("audio", "state")
+    RETURN_TYPES = ("AUDIO", "MINIMAX_MM3_STATE", "AUDIO")
+    RETURN_NAMES = ("audio", "state", "new_audio")
     FUNCTION = "extend"
     CATEGORY = "audio/MiniMax Music 3"
 
-    def extend(self, state, audio_duration, seed):
-        prompt, lyrics = state["prompt"], state["lyrics"]
-        audio, frame_codes = _run(
-            prompt, lyrics, audio_duration, seed, prefix_frame_codes=state["frame_codes"]
-        )
-        # New state carries the full accumulated codes (prefix + new) so it can be extended again.
-        return (audio, _bundle(frame_codes, prompt, lyrics, seed))
+    def extend(self, state, audio_duration, seed, song_audio=None, continue_from_seconds=0.0, prompt="", lyrics=""):
+        # Empty override fields inherit the state's text; non-empty ones replace it for this and later extensions.
+        prompt = prompt.strip() or state["prompt"]
+        lyrics = lyrics.strip() or state["lyrics"]
+        try:
+            new_audio, frame_codes = _run(
+                prompt, lyrics, audio_duration, seed,
+                prefix_frame_codes=state["frame_codes"],
+                prefix_keep_seconds=continue_from_seconds,
+            )
+        except ValueError as e:
+            if "zero new audio frames" in str(e):
+                raise ValueError(
+                    "This song already reached its natural ending, so there is nothing to continue. "
+                    "Either rewind into it (`continue_from_seconds` > 0) and branch from mid-song, or regenerate "
+                    "the base song with more lyrics and/or a shorter `audio_duration` so it gets cut off "
+                    "mid-performance."
+                ) from e
+            raise
+        if song_audio is not None:
+            old = song_audio["waveform"]
+            if continue_from_seconds > 0:
+                old = old[..., : int(round(continue_from_seconds * song_audio["sample_rate"]))]
+            full_audio = {
+                "waveform": torch.cat((old.to(new_audio["waveform"]), new_audio["waveform"]), dim=-1),
+                "sample_rate": new_audio["sample_rate"],
+            }
+        else:
+            full_audio = new_audio
+        # New state carries the full accumulated codes (prefix + new) so it can be extended again. The bundle keeps
+        # the ORIGINAL generation seed (the song's identity, e.g. for %seed% filenames); `seed` here only controlled
+        # the newly sampled frames.
+        return (full_audio, _bundle(frame_codes, prompt, lyrics, state["seed"]), new_audio)
 
 
 class MiniMaxMusic3SaveState:
@@ -181,6 +248,9 @@ class MiniMaxMusic3SaveState:
     CATEGORY = "audio/MiniMax Music 3"
 
     def save(self, state, filename):
+        # `%seed%` in the filename resolves to the state's originating generation seed, so seed-named state files
+        # don't need manual renaming between songs.
+        filename = filename.replace("%seed%", str(state["seed"]))
         # Absolute path is honored as-is (e.g. a Modal Volume mount); otherwise resolve under the output dir.
         name = filename if filename.endswith(_STATE_EXT) else filename + _STATE_EXT
         path = name if os.path.isabs(name) else os.path.join(_resolve_dir(), name)
