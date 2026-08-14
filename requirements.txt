@@ -1,6 +1,6 @@
 # Audio-continuation fork of diffusers (adds MiniMaxMusic3 ModularPipeline + prefix_frame_codes).
 # Pinned to an exact commit so ComfyUI-Manager reinstalls the same code; bump the SHA when the fork changes.
-git+https://github.com/diskrotrepo/diffusers.git@957cdf7e7c07e132fd8852713b5ea2f080ca300a
+git+https://github.com/diskrotrepo/diffusers.git@2b4a760fa8534bca5d4cbf18b59eaf46d2f2538e
 transformers>=4.51.0
 accelerate
 soundfile
