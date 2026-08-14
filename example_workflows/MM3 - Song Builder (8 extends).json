@@ -1,8 +1,8 @@
 {
  "id": "a1b2c3d4-0003-4000-8000-mm3builder01",
  "revision": 0,
- "last_node_id": 32,
- "last_link_id": 28,
+ "last_node_id": 33,
+ "last_link_id": 37,
  "nodes": [
   {
    "id": 1,
@@ -54,6 +54,15 @@
       "name": "seed"
      },
      "link": null
+    },
+    {
+     "localized_name": "num_inference_steps",
+     "name": "num_inference_steps",
+     "type": "INT",
+     "widget": {
+      "name": "num_inference_steps"
+     },
+     "link": 29
     }
    ],
    "outputs": [
@@ -85,8 +94,8 @@
     30,
     42,
     "fixed",
-    3.0,
-    50,
+    4.5,
+    150,
     1.0,
     30
    ]
@@ -273,6 +282,15 @@
       "name": "lyrics"
      },
      "link": null
+    },
+    {
+     "localized_name": "num_inference_steps",
+     "name": "num_inference_steps",
+     "type": "INT",
+     "widget": {
+      "name": "num_inference_steps"
+     },
+     "link": 30
     }
    ],
    "outputs": [
@@ -311,8 +329,8 @@
     -5.0,
     "Genre: reggaeton and latin urbano. Mood: flirty, festive, swaggering energy. Tempo: mid-tempo dembow bounce. Vocals: confident female lead singing in Spanish with melodic reggaeton flow. Instruments: dembow drum pattern, deep 808 bass, plucked latin guitar riffs, airhorn accents. Arrangement: the song flips hard into a club section, call-and-response hooks. Production: modern, punchy, radio-loud. For a fiesta dance floor.",
     "[verse]\nMaria tenia un corderito\nCon lana blanca como nieve\nY a donde iba Maria\nEl corderito la seguia",
-    3.5,
-    50,
+    4.5,
+    150,
     1.0,
     30,
     true
@@ -437,6 +455,15 @@
       "name": "lyrics"
      },
      "link": null
+    },
+    {
+     "localized_name": "num_inference_steps",
+     "name": "num_inference_steps",
+     "type": "INT",
+     "widget": {
+      "name": "num_inference_steps"
+     },
+     "link": 31
     }
    ],
    "outputs": [
@@ -475,8 +502,8 @@
     -5.0,
     "Genre: French electro-swing and chanson. Mood: cheeky, elegant, cabaret-mischief energy. Tempo: brisk swing shuffle. Vocals: charming female lead singing in French with theatrical phrasing. Instruments: swung upright bass, muted jazz trumpet, gypsy-jazz guitar, four-on-the-floor electro kick, vinyl crackle. Arrangement: a sudden vintage-Paris dance-hall section with horn stabs and a brass break. Production: retro-modern blend, bright and bouncy. For a burlesque swing party.",
     "[verse]\nMarie avait un petit agneau\nSa laine blanche comme la neige\nEt partout ou Marie allait\nL'agneau la suivait toujours",
-    3.5,
-    50,
+    4.5,
+    150,
     1.0,
     30,
     true
@@ -601,6 +628,15 @@
       "name": "lyrics"
      },
      "link": null
+    },
+    {
+     "localized_name": "num_inference_steps",
+     "name": "num_inference_steps",
+     "type": "INT",
+     "widget": {
+      "name": "num_inference_steps"
+     },
+     "link": 32
     }
    ],
    "outputs": [
@@ -639,8 +675,8 @@
     -5.0,
     "Genre: German industrial metal. Mood: menacing, thunderous, militant energy. Tempo: heavy stomping half-time. Vocals: deep male voice singing in German, rolled Rs, commanding and dark. Instruments: down-tuned distorted guitars chugging, pounding industrial drums, cold analog synth lines. Arrangement: the song slams into a brutal metal section, riff-driven, with a shouted refrain. Production: crushing, mechanical, precise. For a dark festival mosh pit.",
     "[verse]\nMaria hatte ein kleines Lamm\nSein Fell war weiss wie Schnee\nUnd wohin Maria auch ging\nDas Lamm ging immer hinterher",
-    3.5,
-    50,
+    4.5,
+    150,
     1.0,
     30,
     true
@@ -765,6 +801,15 @@
       "name": "lyrics"
      },
      "link": null
+    },
+    {
+     "localized_name": "num_inference_steps",
+     "name": "num_inference_steps",
+     "type": "INT",
+     "widget": {
+      "name": "num_inference_steps"
+     },
+     "link": 33
     }
    ],
    "outputs": [
@@ -803,8 +848,8 @@
     -5.0,
     "Genre: Japanese city pop finale. Mood: euphoric, neon-lit, nostalgic-sweet energy. Tempo: upbeat groovy disco-funk. Vocals: bright female lead singing in Japanese, smooth and joyful. Instruments: funky rhythm guitar, slap bass, glossy synth chords, brass hits, chorused keys. Arrangement: one last radiant key-lifted section that rides the groove to a clean ending. Production: glossy 80s Tokyo sheen. For a night-drive singalong finale.",
     "[verse]\n\u30e1\u30ea\u30fc\u3055\u3093\u306f\u5b50\u7f8a\u3092\u98fc\u3063\u3066\u305f\n\u305d\u306e\u6bdb\u306f\u96ea\u306e\u3088\u3046\u306b\u767d\u3044\n\u30e1\u30ea\u30fc\u3055\u3093\u304c\u884c\u304f\u3068\u3053\u308d\n\u5b50\u7f8a\u3082\u3064\u3044\u3066\u884c\u304f",
-    3.5,
-    50,
+    4.5,
+    150,
     1.0,
     30,
     false
@@ -929,6 +974,15 @@
       "name": "lyrics"
      },
      "link": null
+    },
+    {
+     "localized_name": "num_inference_steps",
+     "name": "num_inference_steps",
+     "type": "INT",
+     "widget": {
+      "name": "num_inference_steps"
+     },
+     "link": 34
     }
    ],
    "outputs": [
@@ -967,8 +1021,8 @@
     -5.0,
     "",
     "",
-    3.5,
-    50,
+    4.5,
+    150,
     1.0,
     30,
     false
@@ -1093,6 +1147,15 @@
       "name": "lyrics"
      },
      "link": null
+    },
+    {
+     "localized_name": "num_inference_steps",
+     "name": "num_inference_steps",
+     "type": "INT",
+     "widget": {
+      "name": "num_inference_steps"
+     },
+     "link": 35
     }
    ],
    "outputs": [
@@ -1131,8 +1194,8 @@
     -5.0,
     "",
     "",
-    3.5,
-    50,
+    4.5,
+    150,
     1.0,
     30,
     false
@@ -1257,6 +1320,15 @@
       "name": "lyrics"
      },
      "link": null
+    },
+    {
+     "localized_name": "num_inference_steps",
+     "name": "num_inference_steps",
+     "type": "INT",
+     "widget": {
+      "name": "num_inference_steps"
+     },
+     "link": 36
     }
    ],
    "outputs": [
@@ -1295,8 +1367,8 @@
     -5.0,
     "",
     "",
-    3.5,
-    50,
+    4.5,
+    150,
     1.0,
     30,
     false
@@ -1421,6 +1493,15 @@
       "name": "lyrics"
      },
      "link": null
+    },
+    {
+     "localized_name": "num_inference_steps",
+     "name": "num_inference_steps",
+     "type": "INT",
+     "widget": {
+      "name": "num_inference_steps"
+     },
+     "link": 37
     }
    ],
    "outputs": [
@@ -1459,8 +1540,8 @@
     -5.0,
     "",
     "",
-    3.5,
-    50,
+    4.5,
+    150,
     1.0,
     30,
     false
@@ -1638,10 +1719,64 @@
    "title": "Read me",
    "properties": {},
    "widgets_values": [
-    "# MM3 Song Builder \u2014 how it works\n\n**Run** executes left to right. First run loads the model (~1 min). Listen on the Preview nodes; files land in `output/audio/mm3/`.\n\n## Generate (the opening)\n- **prompt** \u2014 the style: genre, BPM, key, mood, vocals, instruments, arrangement.\n- **lyrics** \u2014 section tags like `[verse]` / `[chorus]` must each sit on their own line (words on a tag line are dropped).\n- **audio_duration** \u2014 length of the opening. Keep it *shorter* than the lyrics can fill: a song cut off mid-performance can be extended; one that ends naturally cannot.\n- **seed** \u2014 reroll for a different take. `fixed` = cached, so re-running doesn't regenerate finished stages.\n\n## Extend stages (add sections)\n- Only stage 1 starts active. Select a purple stage and press **Ctrl+B** to enable/disable it. Bypassed stages pass the song through untouched.\n- **audio_duration** \u2014 how much NEW audio this stage adds.\n- **prompt / lyrics** \u2014 empty = keep the song's current text. To steer a section, supply lyrics as the *original sheet plus new verses appended*, and raise `cfg_scale` to 2\u20134 to push a style change through.\n- **continue_from_seconds** \u2014 `0` = continue from the end \u00b7 **negative** = back up that many seconds (`-5` redoes the last 5s) \u00b7 positive = jump to an absolute time from the start, discarding everything after it.\n- After a run each stage shows `section X \u2192 Y \u00b7 song is now Y` right on the node.\n- Don't like a section? Change that stage's seed and re-run \u2014 earlier stages stay cached.\n\n## Sampling knobs (defaults = the model's reference recipe)\n- **cfg_scale** 1.5 \u2014 how hard the text steers. Raise for style pivots; too high hurts naturalness.\n- **top_k** 50 \u00b7 **temperature** 1.0 \u2014 variety vs. safety.\n- **num_inference_steps** 30 \u2014 render quality; ~15 is a fast draft.\n\n## Files\n- `<seed>_take1` = the opening \u00b7 `<seed>_full` = the finished song \u00b7 `song_<seed>.mm3state` = the resumable state.\n- To keep growing a song later, open **MM3 - Resume saved song** and point it at the `.mm3state` \u2014 the audio file alone cannot be extended.\n- **\"Song already ended\" error** = the song reached a natural finish. Rewind into it (negative `continue_from_seconds`) or regenerate the opening with more lyrics / a shorter duration.\n\n## Writing a prompt\nBuild it from these segments, in order:\n`[genre and subgenre] + [mood and energy] + [tempo feel] + [vocal character or instrumental lead] + [key instruments and techniques] + [arrangement arc] + [production character] + [intended use]`\nEvery prompt in this workflow follows that formula.\n\n## This example \u2014 a world tour\nEach section pivots to a radically different genre AND language, all singing the same nursery rhyme: English folk-pop opening -> Spanish reggaeton -> French electro-swing -> German industrial metal -> Japanese city pop finale. Each stage carries ONLY its own section's lyrics (its translated verse) and its own genre prompt, and rewinds `-5` seconds into the previous section so the new style takes over cleanly at the handoff. cfg_scale is 3.0/3.5 so the pivots actually land, and `force_continue` is ON for stages 1-3 (a genre flip at a section boundary is exactly where the model wants to quit) and OFF on the final stage so the song can end properly. Stages 5-8 are bypassed spares.\n"
+    "# MM3 Song Builder \u2014 how it works\n\n**Run** executes left to right. First run loads the model (~1 min). Listen on the Preview nodes; files land in `output/audio/mm3/`.\n\n## Generate (the opening)\n- **prompt** \u2014 the style: genre, BPM, key, mood, vocals, instruments, arrangement.\n- **lyrics** \u2014 section tags like `[verse]` / `[chorus]` must each sit on their own line (words on a tag line are dropped).\n- **audio_duration** \u2014 length of the opening. Keep it *shorter* than the lyrics can fill: a song cut off mid-performance can be extended; one that ends naturally cannot.\n- **seed** \u2014 reroll for a different take. `fixed` = cached, so re-running doesn't regenerate finished stages.\n\n## Extend stages (add sections)\n- Only stage 1 starts active. Select a purple stage and press **Ctrl+B** to enable/disable it. Bypassed stages pass the song through untouched.\n- **audio_duration** \u2014 how much NEW audio this stage adds.\n- **prompt / lyrics** \u2014 empty = keep the song's current text. To steer a section, supply lyrics as the *original sheet plus new verses appended*, and raise `cfg_scale` to 2\u20134 to push a style change through.\n- **continue_from_seconds** \u2014 `0` = continue from the end \u00b7 **negative** = back up that many seconds (`-5` redoes the last 5s) \u00b7 positive = jump to an absolute time from the start, discarding everything after it.\n- After a run each stage shows `section X \u2192 Y \u00b7 song is now Y` right on the node.\n- Don't like a section? Change that stage's seed and re-run \u2014 earlier stages stay cached.\n\n## Sampling knobs (defaults = the model's reference recipe)\n- **cfg_scale** 1.5 \u2014 how hard the text steers. Raise for style pivots; too high hurts naturalness.\n- **top_k** 50 \u00b7 **temperature** 1.0 \u2014 variety vs. safety.\n- **num_inference_steps** 30 \u2014 render quality; ~15 is a fast draft.\n\n## Global quality knob\nThe blue **Render quality (steps)** node feeds `num_inference_steps` to every stage at once: **30** = full quality, **~15** = fast draft, lower = faster and rougher. It only affects how the audio is rendered, not what notes get generated - so drafting at 15 and re-rendering at 30 keeps the same song.\n\n## Files\n- `<seed>_take1` = the opening \u00b7 `<seed>_full` = the finished song \u00b7 `song_<seed>.mm3state` = the resumable state.\n- To keep growing a song later, open **MM3 - Resume saved song** and point it at the `.mm3state` \u2014 the audio file alone cannot be extended.\n- **\"Song already ended\" error** = the song reached a natural finish. Rewind into it (negative `continue_from_seconds`) or regenerate the opening with more lyrics / a shorter duration.\n\n## Writing a prompt\nBuild it from these segments, in order:\n`[genre and subgenre] + [mood and energy] + [tempo feel] + [vocal character or instrumental lead] + [key instruments and techniques] + [arrangement arc] + [production character] + [intended use]`\nEvery prompt in this workflow follows that formula.\n\n## This example \u2014 a world tour\nEach section pivots to a radically different genre AND language, all singing the same nursery rhyme: English folk-pop opening -> Spanish reggaeton -> French electro-swing -> German industrial metal -> Japanese city pop finale. Each stage carries ONLY its own section's lyrics (its translated verse) and its own genre prompt, and rewinds `-5` seconds into the previous section so the new style takes over cleanly at the handoff. cfg_scale is 3.0/3.5 so the pivots actually land, and `force_continue` is ON for stages 1-3 (a genre flip at a section boundary is exactly where the model wants to quit) and OFF on the final stage so the song can end properly. Stages 5-8 are bypassed spares.\n"
    ],
    "color": "#432",
    "bgcolor": "#653"
+  },
+  {
+   "id": 33,
+   "type": "PrimitiveInt",
+   "pos": [
+    40,
+    290
+   ],
+   "size": [
+    400,
+    90
+   ],
+   "flags": {},
+   "order": 0,
+   "mode": 0,
+   "inputs": [
+    {
+     "localized_name": "value",
+     "name": "value",
+     "type": "INT",
+     "widget": {
+      "name": "value"
+     },
+     "link": null
+    }
+   ],
+   "outputs": [
+    {
+     "localized_name": "INT",
+     "name": "INT",
+     "type": "INT",
+     "links": [
+      29,
+      30,
+      31,
+      32,
+      33,
+      34,
+      35,
+      36,
+      37
+     ]
+    }
+   ],
+   "title": "Render quality (steps)",
+   "properties": {
+    "Node name for S&R": "PrimitiveInt"
+   },
+   "widgets_values": [
+    30,
+    "fixed"
+   ],
+   "color": "#223",
+   "bgcolor": "#335"
   }
  ],
  "links": [
@@ -1868,6 +2003,78 @@
    31,
    0,
    "MINIMAX_MM3_STATE"
+  ],
+  [
+   29,
+   33,
+   0,
+   1,
+   4,
+   "INT"
+  ],
+  [
+   30,
+   33,
+   0,
+   10,
+   7,
+   "INT"
+  ],
+  [
+   31,
+   33,
+   0,
+   11,
+   7,
+   "INT"
+  ],
+  [
+   32,
+   33,
+   0,
+   12,
+   7,
+   "INT"
+  ],
+  [
+   33,
+   33,
+   0,
+   13,
+   7,
+   "INT"
+  ],
+  [
+   34,
+   33,
+   0,
+   14,
+   7,
+   "INT"
+  ],
+  [
+   35,
+   33,
+   0,
+   15,
+   7,
+   "INT"
+  ],
+  [
+   36,
+   33,
+   0,
+   16,
+   7,
+   "INT"
+  ],
+  [
+   37,
+   33,
+   0,
+   17,
+   7,
+   "INT"
   ]
  ],
  "groups": [
