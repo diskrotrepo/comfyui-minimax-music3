@@ -52,7 +52,8 @@ def _get_pipe():
     return _PIPE
 
 
-def _run(prompt, lyrics, audio_duration, seed, prefix_frame_codes=None, prefix_keep_seconds=0.0):
+def _run(prompt, lyrics, audio_duration, seed, prefix_frame_codes=None, prefix_keep_seconds=0.0,
+         cfg_scale=1.5, top_k=50, temperature=1.0):
     """Generate (optionally continuing `prefix_frame_codes`). Returns (AUDIO dict, frame_codes LongTensor[cpu]).
 
     `prefix_keep_seconds` > 0 rewinds the prefix to that timestamp first: only its first N seconds are replayed, so
@@ -72,6 +73,9 @@ def _run(prompt, lyrics, audio_duration, seed, prefix_frame_codes=None, prefix_k
         lyrics=lyrics,
         audio_duration=float(audio_duration),
         generator=generator,
+        cfg_scale=float(cfg_scale),
+        top_k=int(top_k),
+        temperature=float(temperature),
         # `frame_codes` is the fork's resumable continuation handle (see MiniMaxMusic3SemanticGenerationStep).
         output=["audios", "frame_codes"],
     )
@@ -125,6 +129,27 @@ _DEFAULT_PROMPT = (
 _DEFAULT_LYRICS = "[verse]\nMorning light filtering through the pine\n[chorus]\nSoftly the world begins to breathe"
 
 
+def _sampling_widgets():
+    """Autoregressive sampling knobs shared by Generate and Extend. Defaults match the reference recipe."""
+    return {
+        "cfg_scale": ("FLOAT", {
+            "default": 1.5, "min": 0.0, "max": 10.0, "step": 0.05,
+            "tooltip": "Classifier-free guidance. Higher follows the prompt/lyrics harder (including against an "
+                       "existing song's momentum when extending) at the cost of diversity/naturalness. 1.0 = off; "
+                       "reference recipe = 1.5; try 2-4 to force a style change through.",
+        }),
+        "top_k": ("INT", {
+            "default": 50, "min": 1, "max": 16384,
+            "tooltip": "Top-k sampling cutoff for the semantic and residual codes. Lower = safer and more "
+                       "repetitive, higher = more adventurous. Reference recipe = 50.",
+        }),
+        "temperature": ("FLOAT", {
+            "default": 1.0, "min": 0.05, "max": 3.0, "step": 0.05,
+            "tooltip": "Sampling temperature; higher = more random. Reference recipe = 1.0.",
+        }),
+    }
+
+
 class MiniMaxMusic3Generate:
     @classmethod
     def INPUT_TYPES(cls):
@@ -134,7 +159,8 @@ class MiniMaxMusic3Generate:
                 "lyrics": ("STRING", {"multiline": True, "default": _DEFAULT_LYRICS}),
                 "audio_duration": ("FLOAT", {"default": 60.0, "min": 1.0, "max": 360.0, "step": 1.0}),
                 "seed": ("INT", {"default": 0, "min": 0, "max": 0xFFFFFFFFFFFFFFFF}),
-            }
+            },
+            "optional": _sampling_widgets(),
         }
 
     RETURN_TYPES = ("AUDIO", "MINIMAX_MM3_STATE")
@@ -142,8 +168,9 @@ class MiniMaxMusic3Generate:
     FUNCTION = "generate"
     CATEGORY = "audio/MiniMax Music 3"
 
-    def generate(self, prompt, lyrics, audio_duration, seed):
-        audio, frame_codes = _run(prompt, lyrics, audio_duration, seed)
+    def generate(self, prompt, lyrics, audio_duration, seed, cfg_scale=1.5, top_k=50, temperature=1.0):
+        audio, frame_codes = _run(prompt, lyrics, audio_duration, seed,
+                                  cfg_scale=cfg_scale, top_k=top_k, temperature=temperature)
         return (audio, _bundle(frame_codes, prompt, lyrics, seed))
 
 
@@ -186,6 +213,8 @@ class MiniMaxMusic3Extend:
                 }),
                 "prompt": ("STRING", {"multiline": True, "default": ""}),
                 "lyrics": ("STRING", {"multiline": True, "default": ""}),
+                # Appended after prompt/lyrics so widget indices of workflows saved before these existed still align.
+                **_sampling_widgets(),
             },
         }
 
@@ -194,7 +223,8 @@ class MiniMaxMusic3Extend:
     FUNCTION = "extend"
     CATEGORY = "audio/MiniMax Music 3"
 
-    def extend(self, state, audio_duration, seed, song_audio=None, continue_from_seconds=0.0, prompt="", lyrics=""):
+    def extend(self, state, audio_duration, seed, song_audio=None, continue_from_seconds=0.0, prompt="", lyrics="",
+               cfg_scale=1.5, top_k=50, temperature=1.0):
         # Empty override fields inherit the state's text; non-empty ones replace it for this and later extensions.
         prompt = prompt.strip() or state["prompt"]
         lyrics = lyrics.strip() or state["lyrics"]
@@ -203,6 +233,7 @@ class MiniMaxMusic3Extend:
                 prompt, lyrics, audio_duration, seed,
                 prefix_frame_codes=state["frame_codes"],
                 prefix_keep_seconds=continue_from_seconds,
+                cfg_scale=cfg_scale, top_k=top_k, temperature=temperature,
             )
         except ValueError as e:
             if "zero new audio frames" in str(e):
