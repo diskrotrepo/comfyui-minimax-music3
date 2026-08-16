@@ -54,6 +54,9 @@ folder.
   prompt, lyrics, length, and seed, so you can build a song section by section.
 - Change a stage's *seed* to reroll just that section — earlier sections are remembered and don't regenerate.
 
+**To get later updates:** open the Manager, press **Update** on this node pack, and restart ComfyUI. That also
+pulls the matching version of the music engine.
+
 **If something breaks:** the most common fixes are ① fully close and reopen ComfyUI, ② open Manager and use
 "Install via Git URL" again (safe to repeat), ③ after a ComfyUI app update, repeat step 2 once — updates can
 reset the app's Python environment.
@@ -125,7 +128,19 @@ entirely and run eagerly.
 cd <ComfyUI>/custom_nodes
 git clone https://github.com/diskrotrepo/comfyui-minimax-music3
 python -m pip install -r comfyui-minimax-music3/requirements.txt
+python comfyui-minimax-music3/install.py
 ```
+
+That last line is not optional. The diffusers fork is pinned to an exact commit, but its version string is
+`0.40.0.dev0` at every commit, so pip treats a moved pin as already satisfied and installs nothing — quietly
+leaving the old engine beside new node code. `install.py` compares the installed commit against the pin and
+forces the reinstall only when they differ.
+
+## Updating
+
+Use the Manager's **Update** button, or `git pull` in this folder. Either way `install.py` runs (the Manager
+runs it after an update; run it yourself after a manual pull) and pulls the matching engine version. Then
+**restart ComfyUI** — Python only loads custom nodes and libraries at startup.
 
 Requires Git installed for the `git+https` diffusers line. On Windows Desktop, run pip from the app's built-in
 terminal so it targets the **bundled venv**, not system Python.
