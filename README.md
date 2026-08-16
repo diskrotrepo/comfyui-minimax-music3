@@ -100,12 +100,16 @@ minutes, re-reading it.
 
 ### Generation speed
 
-On an RTX 5090, roughly **1x realtime** — a 60s song takes about a minute. Most of that is the autoregressive stage
-(around three quarters of it), which is why `num_inference_steps` is a weaker speed lever than it looks: halving it
-trims the flow-matching stage only, worth about 10% of the total.
+On an RTX 5090 a 60s song takes about **53s**. Most of that is the autoregressive stage (around three quarters of
+it), which is why `num_inference_steps` is a weaker speed lever than it looks: halving it trims the flow-matching
+stage only, worth about 10% of the total.
 
-The **first generation after ComfyUI starts is ~10% slower** while the language model and depth decoder compile; every
-generation after that in the same session runs at full speed. Set `TORCHDYNAMO_DISABLE=1` to skip compilation
+The flow-matching transformer runs in **fp8**, which is where that stage'''s ~1.8x came from. Its output is therefore
+not bit-identical to a bf16 render — the semantic codes are untouched, so it is the same performance rendered
+slightly differently. The autoregressive stage stays in bf16, where fp8 measured slower.
+
+The **first generation after ComfyUI starts is ~12% slower** while the language model, depth decoder and
+flow-matching block compile; every generation after that in the same session runs at full speed. Set `TORCHDYNAMO_DISABLE=1` to skip compilation
 entirely and run eagerly.
 
 ## Requirements
