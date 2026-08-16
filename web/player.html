@@ -1,0 +1,903 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>MiniMax Music 3 &mdash; live stream</title>
+<style>
+  *, *::before, *::after { box-sizing: border-box; }
+
+  /* Light palette is the base; both dark selectors redefine the same tokens, so the OS preference and the
+     manual toggle each win in their own direction. */
+  :root {
+    color-scheme: light dark;
+    --bg:#f5f6f8; --card:#ffffff; --sunk:#e9ecf1;
+    --text:#12151a; --muted:#6b7280; --line:#e3e6ea; --tick:#aab3c0;
+    --accent:#3558d6; --accent-2:#7d92ea; --accent-soft:#dde4fb;
+    --ok:#0f9d58; --warn:#c47f0a; --bad:#d13b3b;
+    --shadow:0 1px 2px rgba(18,21,26,.05), 0 10px 30px rgba(18,21,26,.07);
+  }
+  @media (prefers-color-scheme: dark) {
+    :root:not([data-theme="light"]) {
+      --bg:#0c0e12; --card:#15181e; --sunk:#0a0c10;
+      --text:#e9ecf1; --muted:#909aa8; --line:#252a33; --tick:#4a5462;
+      --accent:#6f8dff; --accent-2:#3d5bd0; --accent-soft:#1d2740;
+      --ok:#3ecf8e; --warn:#e0a83c; --bad:#f0736b;
+      --shadow:0 1px 2px rgba(0,0,0,.4), 0 12px 34px rgba(0,0,0,.42);
+    }
+  }
+  :root[data-theme="dark"] {
+    --bg:#0c0e12; --card:#15181e; --sunk:#0a0c10;
+    --text:#e9ecf1; --muted:#909aa8; --line:#252a33; --tick:#4a5462;
+    --accent:#6f8dff; --accent-2:#3d5bd0; --accent-soft:#1d2740;
+    --ok:#3ecf8e; --warn:#e0a83c; --bad:#f0736b;
+    --shadow:0 1px 2px rgba(0,0,0,.4), 0 12px 34px rgba(0,0,0,.42);
+  }
+
+  html, body { height: 100%; }
+  body {
+    margin: 0; background: var(--bg); color: var(--text);
+    font: 15px/1.5 ui-sans-serif, system-ui, -apple-system, "Segoe UI", Roboto, Arial, sans-serif;
+    -webkit-font-smoothing: antialiased;
+    display: flex; justify-content: center; align-items: flex-start;
+    padding: 32px 18px 48px;
+  }
+  .app { width: 100%; max-width: 660px; }
+
+  .top { display: flex; align-items: center; gap: 12px; margin-bottom: 18px; }
+  .mark {
+    width: 38px; height: 38px; flex: none; border-radius: 11px;
+    background: linear-gradient(150deg, var(--accent), var(--accent-2));
+    display: grid; place-items: center; color: #fff; font-size: 19px; box-shadow: var(--shadow);
+  }
+  h1 { margin: 0; font-size: 16px; font-weight: 620; letter-spacing: -.01em; }
+  .sub { margin: 1px 0 0; font-size: 12.5px; color: var(--muted); }
+  .top-right { margin-left: auto; display: flex; align-items: center; gap: 8px; }
+
+  .pill {
+    font-size: 12px; font-weight: 560; padding: 5px 11px 5px 9px; border-radius: 999px;
+    border: 1px solid var(--line); background: var(--card); color: var(--muted); white-space: nowrap;
+    display: inline-flex; align-items: center; gap: 7px;
+  }
+  .pill::before { content: ""; width: 7px; height: 7px; border-radius: 50%; background: currentColor; flex: none; }
+  .pill-streaming { color: var(--ok); border-color: color-mix(in srgb, var(--ok) 35%, var(--line)); }
+  .pill-streaming::before { animation: pulse 1.4s ease-in-out infinite; }
+  .pill-waiting, .pill-between { color: var(--warn); border-color: color-mix(in srgb, var(--warn) 35%, var(--line)); }
+  .pill-waiting::before, .pill-between::before { animation: pulse 1.4s ease-in-out infinite; }
+  .pill-complete { color: var(--accent); border-color: color-mix(in srgb, var(--accent) 35%, var(--line)); }
+  .pill-idle { color: var(--muted); }
+  .pill-error, .pill-offline { color: var(--bad); border-color: color-mix(in srgb, var(--bad) 35%, var(--line)); }
+  @keyframes pulse { 0%,100% { opacity: 1; } 50% { opacity: .25; } }
+
+  .icon-btn {
+    width: 30px; height: 30px; flex: none; border-radius: 8px; cursor: pointer;
+    border: 1px solid var(--line); background: var(--card); color: var(--muted);
+    font-size: 14px; line-height: 1; display: grid; place-items: center;
+  }
+  .icon-btn:hover { color: var(--text); }
+
+  .card {
+    background: var(--card); border: 1px solid var(--line); border-radius: 16px;
+    box-shadow: var(--shadow); padding: 22px;
+  }
+
+  .track { position: relative; height: 10px; border-radius: 999px; background: var(--sunk); overflow: hidden; margin-bottom: 9px; }
+  .bar { position: absolute; inset: 0 auto 0 0; width: 0; border-radius: 999px; }
+  .buffered { background: var(--accent-soft); }
+  .played { background: linear-gradient(90deg, var(--accent-2), var(--accent)); }
+  .ticks { position: absolute; inset: 0; pointer-events: none; }
+  .ticks i { position: absolute; top: 0; bottom: 0; width: 1px; background: var(--tick); opacity: .55; }
+  .ticks i.stage { width: 2px; opacity: 1; background: var(--text); }
+  .head { position: absolute; top: -2px; bottom: -2px; width: 2px; left: 0; background: var(--text); border-radius: 1px; opacity: 0; transition: opacity .2s; }
+  .times { display: flex; align-items: baseline; gap: 7px; font-variant-numeric: tabular-nums; font-size: 13px; color: var(--muted); }
+  .times .now { font-size: 22px; font-weight: 600; color: var(--text); letter-spacing: -.02em; }
+  .times .sep { font-size: 15px; }
+  .times .gen { font-size: 15px; color: var(--text); }
+  .times .exp { margin-left: auto; font-size: 12px; }
+
+  .transport { display: flex; align-items: center; gap: 18px; margin-top: 20px; padding-top: 20px; border-top: 1px solid var(--line); }
+  .play {
+    width: 58px; height: 58px; flex: none; border-radius: 50%; cursor: pointer; border: 0;
+    background: var(--accent); color: #fff; display: grid; place-items: center;
+    box-shadow: 0 4px 14px color-mix(in srgb, var(--accent) 38%, transparent);
+    transition: transform .12s ease, filter .12s ease;
+  }
+  .play:hover { filter: brightness(1.07); }
+  .play:active { transform: scale(.94); }
+  .play svg { margin-left: 3px; }
+  .play.is-playing svg { margin-left: 0; }
+
+  .meterwrap { flex: 1; min-width: 0; }
+  .meterhead { display: flex; align-items: baseline; gap: 8px; margin-bottom: 6px; }
+  .label { font-size: 11.5px; text-transform: uppercase; letter-spacing: .07em; color: var(--muted); font-weight: 560; }
+  .val { margin-left: auto; font-size: 14px; font-weight: 600; font-variant-numeric: tabular-nums; }
+  .meter { height: 7px; border-radius: 999px; background: var(--sunk); overflow: hidden; }
+  .meterfill { height: 100%; width: 0; border-radius: 999px; transition: width .2s linear, background-color .3s; }
+  .meterfill.lo { background: var(--bad); }
+  .meterfill.mid { background: var(--warn); }
+  .meterfill.hi { background: var(--ok); }
+  .scale { display: flex; justify-content: space-between; font-size: 10.5px; color: var(--muted); margin-top: 4px; font-variant-numeric: tabular-nums; }
+
+  .volwrap { display: flex; flex-direction: column; gap: 6px; width: 78px; flex: none; }
+  input[type=range] { width: 100%; accent-color: var(--accent); cursor: pointer; }
+
+  .stages { margin-top: 18px; border-top: 1px solid var(--line); padding-top: 14px; }
+  .stages h2 { margin: 0 0 9px; font-size: 11.5px; text-transform: uppercase; letter-spacing: .07em; color: var(--muted); font-weight: 560; }
+  .stage-row {
+    display: flex; align-items: center; gap: 9px; padding: 5px 0;
+    font-size: 12.5px; font-variant-numeric: tabular-nums; border-top: 1px solid var(--line);
+  }
+  .stage-row:first-of-type { border-top: 0; }
+  .stage-row .dot { width: 7px; height: 7px; border-radius: 50%; flex: none; background: var(--tick); }
+  .stage-row.open .dot { background: var(--ok); animation: pulse 1.4s ease-in-out infinite; }
+  .stage-row.playing .dot { background: var(--accent); }
+  .stage-row.empty .dot, .stage-row.error .dot { background: var(--bad); }
+  .stage-row .nm { font-weight: 560; min-width: 108px; }
+  .stage-row .meta { color: var(--muted); }
+  .stage-row .dur { margin-left: auto; color: var(--muted); }
+  .stage-row.playing .nm { color: var(--accent); }
+
+  .stats { display: grid; grid-template-columns: repeat(5, 1fr); gap: 1px; margin-top: 20px; background: var(--line); border: 1px solid var(--line); border-radius: 11px; overflow: hidden; }
+  .stat { background: var(--card); padding: 11px 6px; text-align: center; }
+  .stat .k { font-size: 17px; font-weight: 620; font-variant-numeric: tabular-nums; letter-spacing: -.01em; }
+  .stat .v { font-size: 10.5px; text-transform: uppercase; letter-spacing: .06em; color: var(--muted); margin-top: 2px; }
+
+  pre.log {
+    margin: 14px 0 0; padding: 11px 13px; border-radius: 10px; background: var(--sunk); color: var(--muted);
+    font: 11.5px/1.65 ui-monospace, "Cascadia Mono", Consolas, "Courier New", monospace;
+    white-space: pre-wrap; word-break: break-word; max-height: 130px; overflow: auto;
+  }
+  .foot { margin: 14px 2px 0; font-size: 11px; color: var(--muted); text-align: center; }
+
+  @media (max-width: 470px) {
+    .transport { flex-wrap: wrap; gap: 14px; }
+    .volwrap { width: 100%; flex-direction: row; align-items: center; gap: 10px; }
+    .stats { grid-template-columns: repeat(2, 1fr); }
+    .stage-row .nm { min-width: 84px; }
+  }
+</style>
+</head>
+<body>
+<main class="app">
+
+  <div class="top">
+    <div class="mark" aria-hidden="true">&#9835;</div>
+    <div>
+      <h1>MiniMax Music 3</h1>
+      <p class="sub">live stream player</p>
+    </div>
+    <div class="top-right">
+      <span id="status" class="pill pill-offline" role="status" aria-live="polite">connecting</span>
+      <button id="theme" class="icon-btn" type="button" title="Toggle light / dark" aria-label="Toggle light or dark theme">&#9680;</button>
+    </div>
+  </div>
+
+  <section class="card">
+    <div class="track" id="track">
+      <div class="bar buffered" id="bufBar"></div>
+      <div class="bar played" id="playBar"></div>
+      <div class="ticks" id="ticks"></div>
+      <div class="head" id="headMark"></div>
+    </div>
+    <div class="times">
+      <span class="now" id="elapsed">0:00</span>
+      <span class="sep">/</span>
+      <span class="gen" id="total">0:00</span>
+      <span>ready</span>
+      <span class="exp" id="expected"></span>
+    </div>
+
+    <div class="transport">
+      <button id="playBtn" class="play" type="button" aria-label="Play"></button>
+
+      <div class="meterwrap">
+        <div class="meterhead">
+          <span class="label">buffer ahead</span>
+          <span class="val" id="aheadVal">0.0 s</span>
+        </div>
+        <div class="meter"><div class="meterfill lo" id="aheadBar"></div></div>
+        <div class="scale"><span>0</span><span>15</span><span>30 s</span></div>
+      </div>
+
+      <div class="volwrap">
+        <label class="label" for="vol">volume</label>
+        <input id="vol" type="range" min="0" max="100" value="90" aria-label="Volume">
+      </div>
+    </div>
+
+    <div class="stages" id="stagesWrap" hidden>
+      <h2>stages</h2>
+      <div id="stageList"></div>
+    </div>
+  </section>
+
+  <div class="stats">
+    <div class="stat"><div class="k" id="sStages">0</div><div class="v">stages</div></div>
+    <div class="stat"><div class="k" id="sChunks">0</div><div class="v">chunks</div></div>
+    <div class="stat"><div class="k" id="sFirst">--</div><div class="v">first audio</div></div>
+    <div class="stat"><div class="k" id="sRebuf">0</div><div class="v">rebuffers</div></div>
+    <div class="stat"><div class="k" id="sDrop">0</div><div class="v">dropped</div></div>
+  </div>
+
+  <pre class="log" id="log" hidden></pre>
+  <p class="foot" id="foot"></p>
+</main>
+
+<script>
+(function () {
+  'use strict';
+
+  // =========================================================================================================
+  // THE CONTRACT (mm3_stream.py is the authority; this file must agree with it word for word)
+  //
+  //   run      one queued prompt.  run_id  == ComfyUI prompt_id.
+  //   stream   one node execution. stream_id == "{run_id}:{node_id}:{seq}".
+  //   seq      the stream's ordinal in the run: 0 = Generate, 1..8 = the Extends.
+  //   index    the chunk's ordinal in its stream, restarting at 0 every stream.
+  //   chunk id (stream_id, index).   GLOBAL PLAY ORDER = (seq, index).
+  //
+  // That last line is the whole reason this player exists in this shape: the eight-stage Song Builder graph
+  // is NINE separate streams, each with its own index 0. Playing them as one continuous song means walking a
+  // cursor over (seq, index) and never resetting the audio timeline between stages.
+  //
+  //   events   "mm3.chunk"  per chunk;  "mm3.stream" with state "start"|"end" per stream.
+  //            A REPEATED "start" for a stream we already know is an UPDATE, never a reset.
+  //   bytes    GET /mm3/chunk?stream=<id>&index=<n>  ->  application/octet-stream,
+  //            PLANAR little-endian float32: all of channel 0, then all of channel 1.
+  //            `samples` in the event is FRAMES PER CHANNEL; the body length is authoritative.
+  //   404      not produced yet -> keep asking.   410  produced then freed -> stop asking, skip forward.
+  //
+  // This page MUST be served from /mm3/player. Opened as file:// Chromium sends Sec-Fetch-Site: cross-site
+  // and ComfyUI's origin middleware (server.py:159-166) returns a bare 403 on every chunk while the
+  // websocket still connects — which looks like a buffer bug and is not one.
+  //
+  // The websocket is opened WITHOUT a clientId: server.py:274-276 pops any socket whose clientId matches, so
+  // reusing the ComfyUI tab's id would silently disconnect it. mm3.* events are broadcast (sid=None) so a
+  // clientId-less socket receives them. Note ComfyUI's own execution_start/executing/execution_success are
+  // addressed to server.client_id (execution.py:684) and therefore never reach this page — everything below
+  // is driven by mm3.* plus the broadcast "status" queue counter.
+  // =========================================================================================================
+
+  var DEFAULT_SR = 44100;
+  var DEFAULT_CH = 2;
+  var LEAD = 0.25;              // anchor slack, retuned from the context's own latency in initAudio()
+  var MIN_LEAD = 0.05;          // below this the playhead counts as late, likewise retuned
+  var AHEAD_SCALE = 30;         // buffer meter full scale, seconds
+  var MAX_RETRY = 8;            // ~6.8 s of backoff before a chunk is written off
+  var MAX_FILL = 15;            // sanity cap (seconds) on an announced silence fill
+  var MAX_BACKLOG = 420;        // seconds of decoded audio held while NOT playing (~148 MB stereo f32)
+
+  var PENDING = 'pending';      // slot sentinel: fetch in flight
+  var SKIP = 'skip';            // slot sentinel: written off, length unknown
+
+  var $ = function (id) { return document.getElementById(id); };
+  var el = {
+    status: $('status'), playBtn: $('playBtn'), elapsed: $('elapsed'), total: $('total'),
+    expected: $('expected'), playBar: $('playBar'), bufBar: $('bufBar'), ticks: $('ticks'),
+    headMark: $('headMark'), aheadVal: $('aheadVal'), aheadBar: $('aheadBar'),
+    sStages: $('sStages'), sChunks: $('sChunks'), sFirst: $('sFirst'), sRebuf: $('sRebuf'), sDrop: $('sDrop'),
+    stagesWrap: $('stagesWrap'), stageList: $('stageList'),
+    log: $('log'), vol: $('vol'), theme: $('theme'), foot: $('foot')
+  };
+
+  function fmt(s) {
+    if (!isFinite(s) || s < 0) s = 0;
+    var m = Math.floor(s / 60), r = Math.floor(s % 60);
+    return m + ':' + String(r).padStart(2, '0');
+  }
+  function sleep(ms) { return new Promise(function (r) { setTimeout(r, ms); }); }
+  function num(v) { return (typeof v === 'number' && isFinite(v)) ? v : null; }
+
+  var logLines = [];
+  function note(msg) {
+    logLines.unshift(new Date().toLocaleTimeString() + '  ' + msg);
+    if (logLines.length > 6) logLines.length = 6;
+    el.log.textContent = logLines.join('\n');
+    el.log.hidden = false;
+  }
+
+  // ---- theme: OS preference by default, manual override sticks --------------------------------------------
+  var savedTheme = null;
+  try { savedTheme = localStorage.getItem('mm3-theme'); } catch (e) {}
+  if (savedTheme === 'light' || savedTheme === 'dark') document.documentElement.setAttribute('data-theme', savedTheme);
+  el.theme.addEventListener('click', function () {
+    var cur = document.documentElement.getAttribute('data-theme');
+    if (!cur) cur = matchMedia('(prefers-color-scheme: dark)').matches ? 'dark' : 'light';
+    var next = cur === 'dark' ? 'light' : 'dark';
+    document.documentElement.setAttribute('data-theme', next);
+    try { localStorage.setItem('mm3-theme', next); } catch (e) {}
+  });
+
+  // ---- URL plumbing ---------------------------------------------------------------------------------------
+  // ComfyUI mirrors every RouteDef under /api (server.py:1234-1240), so this page may be served at either
+  // /mm3/player or /api/mm3/player. Strip that suffix to recover the root everything else lives under.
+  function apiRoot() {
+    var p = location.pathname.replace(/\/+$/, '');
+    var i = p.lastIndexOf('/mm3/player');
+    return i >= 0 ? p.slice(0, i) : '';
+  }
+  function chunkURL(d) {
+    if (d && d.url) {
+      try {
+        var u = new URL(String(d.url), location.href);
+        if (u.origin === location.origin) return u.href;
+        note('ignoring off-origin chunk url ' + u.origin);
+      } catch (e) { /* fall through */ }
+    }
+    var q = new URLSearchParams({ stream: String(d.stream_id), index: String(d.index) });
+    return apiRoot() + '/mm3/chunk?' + q.toString();
+  }
+
+  // ---- audio state ----------------------------------------------------------------------------------------
+  var ctx = null, gain = null, vol = 0.9;
+  var playing = false, started = false;
+  var anchorTime = 0;      // ctx time at which the anchor sample is heard
+  var anchorSample = 0;    // absolute sample index sounding at anchorTime
+  var queuedSamples = 0;   // total samples handed to the graph
+  var rebuffers = 0;
+  var sources = new Set();
+  var ready = [];          // decoded, in play order, waiting for a running context
+  var readySamples = 0;
+  var run = null;
+  var ws = null, wsRetry = 0, wsTimer = 0, queueRemaining = null;
+
+  function initAudio() {
+    var AC = window.AudioContext || window.webkitAudioContext;
+    if (!AC) { note('Web Audio is not available in this browser.'); return false; }
+    var want = (run && run.sampleRate) || DEFAULT_SR;
+    try { ctx = new AC({ sampleRate: want, latencyHint: 'playback' }); }
+    catch (e) {
+      try { ctx = new AC(); }
+      catch (e2) { note('could not create an AudioContext: ' + e2.message); return false; }
+    }
+    // baseLatency is the context's own render-ahead buffer and is readable before the context runs. Anything
+    // scheduled closer than ~2 of those can land inside an already-rendered block and start LATE while
+    // queuedSamples advances on time — exactly the drift the integer-sample accounting exists to prevent.
+    // latencyHint:'playback' deliberately asks for a big buffer, so a fixed 15 ms guard is not survivable.
+    MIN_LEAD = Math.max(0.05, (ctx.baseLatency || 0) * 2 + 0.02);
+    LEAD = Math.max(0.25, MIN_LEAD * 3);
+    if (Math.round(ctx.sampleRate) !== want) {
+      note('output device runs at ' + Math.round(ctx.sampleRate) + ' Hz, so ' + want + ' Hz chunks are '
+         + 'resampled one buffer at a time; each seam can lose up to a render block.');
+    }
+    gain = ctx.createGain();
+    gain.gain.value = vol;
+    gain.connect(ctx.destination);
+    return true;
+  }
+
+  function stopAll() {
+    sources.forEach(function (s) { try { s.onended = null; s.stop(); } catch (e) {} });
+    sources.clear();
+  }
+
+  function resetRun(id) {
+    stopAll();
+    ready.length = 0; readySamples = 0;
+    queuedSamples = 0; anchorSample = 0; anchorTime = 0; started = false; rebuffers = 0;
+    run = {
+      id: id,
+      sampleRate: null,
+      stages: new Map(),        // stream_id -> stage
+      order: [],                // stream_ids sorted by seq
+      slots: new Map(),         // "stream_id#index" -> PENDING | SKIP | {n, ch, ab, }
+      cursor: { streamId: null, index: 0 },
+      playedChunks: 0,
+      dropped: 0,
+      readySeconds: 0,          // contiguous audio released to the graph queue, in seconds
+      boundaries: [],           // {t, stage} chunk-end times for the timeline ticks
+      startedAt: performance.now(),
+      firstAudioAt: null,
+      warnedRate: false,
+      warnedFormat: false
+    };
+    note('run ' + String(id).slice(0, 8) + ' — new song');
+  }
+
+  function stageOf(d) {
+    var r = run;
+    var st = r.stages.get(d.stream_id);
+    if (!st) {
+      st = {
+        streamId: d.stream_id, seq: num(d.seq) != null ? d.seq : r.order.length,
+        nodeId: d.node_id == null ? '?' : String(d.node_id), kind: d.kind || 'generate',
+        sampleRate: num(d.sample_rate) || DEFAULT_SR, channels: num(d.channels) || null,
+        rewind: num(d.rewind_seconds) || 0,
+        expectedChunks: num(d.expected_chunks), expectedSeconds: num(d.expected_seconds),
+        firstIndex: num(d.first_index) || 0, chunkCount: num(d.chunk_count) || 0,
+        closed: false, status: null, playedChunks: 0, playedSamples: 0
+      };
+      r.stages.set(st.streamId, st);
+      r.order = [...r.stages.keys()].sort(function (a, b) {
+        return r.stages.get(a).seq - r.stages.get(b).seq;
+      });
+    }
+    return st;
+  }
+
+  // Position is derived from the same anchor the audio is scheduled against, so the readout can never drift
+  // away from what is actually sounding.
+  function position() {
+    if (!ctx || !started || !run) return 0;
+    var sr = run.sampleRate || DEFAULT_SR;
+    var p = anchorSample / sr + Math.max(0, ctx.currentTime - anchorTime);
+    return Math.min(p, queuedSamples / sr);
+  }
+
+  function schedule(c) {
+    var sr = (run && run.sampleRate) || DEFAULT_SR;
+    var buf = ctx.createBuffer(c.ch, c.n, sr);
+    if (c.ab) {
+      // PLANAR float32: channel k occupies bytes [k*n*4, (k+1)*n*4). No de-interleave loop, and every
+      // byteOffset is a multiple of 4 because n*4 is.
+      for (var ci = 0; ci < c.ch; ci++) buf.copyToChannel(new Float32Array(c.ab, ci * c.n * 4, c.n), ci);
+      c.ab = null;                       // copied into the buffer; let the bytes go
+    }                                    // (no ab = a silence filler; createBuffer is already zeroed)
+
+    var playhead = anchorTime + (queuedSamples - anchorSample) / sr;
+    if (!started || playhead < ctx.currentTime + MIN_LEAD) {
+      // Either the very first chunk (establishing the timeline) or we genuinely fell behind real time —
+      // nothing is still sounding, so re-anchoring is safe. A CONTENT discontinuity (a skipped chunk, or a
+      // stage boundary) must NOT come through here: audio is still queued ahead and re-anchoring would
+      // schedule this on top of it, overlapping by the full buffer depth.
+      if (started) rebuffers++;
+      anchorSample = queuedSamples;
+      anchorTime = ctx.currentTime + LEAD;
+      playhead = anchorTime;
+      started = true;
+    }
+
+    var src = ctx.createBufferSource();
+    src.buffer = buf;
+    src.connect(gain);
+    src.onended = function () { sources.delete(src); };
+    sources.add(src);
+    src.start(playhead);
+    queuedSamples += c.n;
+  }
+
+  function flush() {
+    if (!playing || !ctx || ctx.state !== 'running') return;
+    while (ready.length) { var c = ready.shift(); readySamples -= c.n; schedule(c); }
+  }
+
+  function trimBacklog() {
+    if (playing) return;
+    var sr = (run && run.sampleRate) || DEFAULT_SR;
+    var dropped = 0;
+    while (ready.length > 1 && readySamples / sr > MAX_BACKLOG) {
+      var c = ready.shift(); readySamples -= c.n; c.ab = null; dropped++;
+    }
+    if (dropped) note('press Play — dropped ' + dropped + ' un-played chunks to cap memory at '
+                    + MAX_BACKLOG + ' s of backlog.');
+  }
+
+  // ---- the ordered release: walk the cursor over (seq, index) ---------------------------------------------
+  function nextStreamAfter(r, streamId) {
+    var i = r.order.indexOf(streamId);
+    return (i >= 0 && i + 1 < r.order.length) ? r.order[i + 1] : null;
+  }
+
+  function drain() {
+    var r = run;
+    if (!r) return;
+    for (var guard = 0; guard < 100000; guard++) {
+      if (r.cursor.streamId === null) {
+        if (!r.order.length) break;
+        var first = r.stages.get(r.order[0]);
+        r.cursor = { streamId: first.streamId, index: first.firstIndex };
+      }
+      var st = r.stages.get(r.cursor.streamId);
+      if (!st) {                                   // stage vanished entirely; jump to the next one we know
+        var nx0 = nextStreamAfter(r, r.cursor.streamId);
+        if (nx0 === null) break;
+        r.cursor = { streamId: nx0, index: r.stages.get(nx0).firstIndex };
+        continue;
+      }
+      if (r.cursor.index < st.firstIndex) {        // its head was evicted; skip forward, do not stall
+        note('stage ' + st.seq + ': chunks ' + r.cursor.index + '..' + (st.firstIndex - 1) + ' were freed.');
+        r.cursor.index = st.firstIndex;
+        continue;
+      }
+      var key = st.streamId + '#' + r.cursor.index;
+      var slot = r.slots.get(key);
+      if (slot === undefined) {
+        // Never announced. Either it does not exist yet, or this stage is over.
+        if (st.closed && r.cursor.index >= st.chunkCount) {
+          var nx = nextStreamAfter(r, st.streamId);
+          if (nx === null) break;                  // wait for the next stage of the graph to open
+          var ns = r.stages.get(nx);
+          r.cursor = { streamId: nx, index: ns.firstIndex };
+          continue;
+        }
+        break;                                     // wait for the chunk
+      }
+      if (slot === PENDING) break;                 // fetch in flight; hold the line so order is preserved
+      r.slots.delete(key);
+      r.cursor.index++;
+      if (slot === SKIP) continue;                 // content jumps, timeline stays contiguous
+      var sr = r.sampleRate || DEFAULT_SR;
+      r.readySeconds += slot.n / sr;
+      r.playedChunks++;
+      st.playedChunks++;
+      st.playedSamples += slot.n;
+      r.boundaries.push({ t: r.readySeconds, stage: r.cursor.index >= st.chunkCount && st.closed });
+      if (r.firstAudioAt === null) r.firstAudioAt = performance.now();
+      ready.push(slot);
+      readySamples += slot.n;
+    }
+    trimBacklog();
+    flush();
+  }
+
+  // A chunk we can never get. If its length was announced we substitute exactly that much silence, which keeps
+  // every later chunk on its true timeline; otherwise we can only skip it.
+  function giveUp(r, meta, why) {
+    if (r !== run) return;
+    r.dropped++;
+    var key = meta.stream_id + '#' + meta.index;
+    if (meta.samples > 0 && meta.samples <= MAX_FILL * (r.sampleRate || DEFAULT_SR)) {
+      r.slots.set(key, { ab: null, ch: meta.ch, n: meta.samples });
+      note('stage ' + meta.seq + ' chunk ' + meta.index + ' failed (' + why + ') — filled with '
+         + (meta.samples / (r.sampleRate || DEFAULT_SR)).toFixed(2) + ' s of silence.');
+    } else {
+      r.slots.set(key, SKIP);
+      note('stage ' + meta.seq + ' chunk ' + meta.index + ' failed (' + why + ') with no usable length — skipped.');
+    }
+    drain();
+  }
+
+  async function fetchChunk(r, meta) {
+    var key = meta.stream_id + '#' + meta.index;
+    for (;;) {
+      meta.tries++;
+      try {
+        var res = await fetch(meta.url, { cache: 'no-store', credentials: 'same-origin' });
+        // 410 = produced then freed. Retrying is pointless; write it off now so the cursor keeps moving.
+        if (res.status === 410) { giveUp(r, meta, 'gone (410)'); return; }
+        if (!res.ok) throw new Error('HTTP ' + res.status);
+        var ab = await res.arrayBuffer();
+        if (r !== run) return;                       // a newer run superseded this one
+        var ch = meta.ch || DEFAULT_CH;
+        var n = Math.floor(ab.byteLength / (4 * ch));
+        if (n <= 0) throw new Error('empty body');
+        if (meta.samples && meta.samples !== n) {
+          note('stage ' + meta.seq + ' chunk ' + meta.index + ': announced ' + meta.samples
+             + ' samples, body holds ' + n + '. Using ' + n + '. (`samples` must be frames PER CHANNEL.)');
+        }
+        r.slots.set(key, { ab: ab, ch: ch, n: n });
+        drain();
+        return;
+      } catch (err) {
+        if (r !== run) return;
+        if (meta.tries >= MAX_RETRY) { giveUp(r, meta, err.message); return; }
+        // A wide, capped budget (~6.8 s): the announcement crosses the daemon-thread / aiohttp-loop boundary
+        // and a single transient miss must not punch a permanent 4 s hole into the song.
+        await sleep(Math.min(1500, 150 * Math.pow(2, meta.tries - 1)));
+      }
+    }
+  }
+
+  // Is (stage, index) already behind the play cursor? drain() deletes a slot once it consumes it, so without
+  // this test a later backfill would re-request chunks that have already played — re-inflating the `dropped`
+  // counter on a written-off chunk and leaking an orphaned slot that nothing will ever consume.
+  function isPast(r, st, index) {
+    if (r.cursor.streamId === null) return false;
+    var cs = r.stages.get(r.cursor.streamId);
+    if (!cs) return false;
+    if (st.seq !== cs.seq) return st.seq < cs.seq;
+    return index < r.cursor.index;
+  }
+
+  function want(r, st, index, channels, samples) {
+    var key = st.streamId + '#' + index;
+    if (r.slots.has(key)) return;                  // already pending, ready or written off
+    if (index < st.firstIndex) return;             // freed before we could ask
+    if (isPast(r, st, index)) return;              // already played; do not re-fetch
+    r.slots.set(key, PENDING);
+    fetchChunk(r, {
+      stream_id: st.streamId, seq: st.seq, index: index,
+      ch: channels || st.channels || DEFAULT_CH, samples: samples || 0, tries: 0,
+      url: chunkURL({ stream_id: st.streamId, index: index })
+    });
+  }
+
+  // Ask for anything in [firstIndex, chunkCount) we have not already got. This is what closes the two holes
+  // that would otherwise stall the cursor forever: announcements missed while the page was loading, and the
+  // trailing chunks a stream's END event reveals.
+  function backfill(r, st) {
+    for (var i = st.firstIndex; i < st.chunkCount; i++) want(r, st, i, st.channels, 0);
+  }
+
+  // ---- websocket events -----------------------------------------------------------------------------------
+  function onChunk(d) {
+    if (!d || d.stream_id == null || num(d.index) === null) return;
+    var id = String(d.run_id);
+    if (!run || run.id !== id) resetRun(id);
+    var r = run;
+    if (r.sampleRate === null) r.sampleRate = num(d.sample_rate) || DEFAULT_SR;
+    else if (num(d.sample_rate) && d.sample_rate !== r.sampleRate && !r.warnedRate) {
+      r.warnedRate = true;
+      note('stage reports ' + d.sample_rate + ' Hz but this run started at ' + r.sampleRate + ' Hz; '
+         + 'playing everything at ' + r.sampleRate + ' Hz.');
+    }
+    // Guard the one thing that fails silently rather than loudly. Interleaved bytes read as planar do not
+    // error — they play as a smeared, half-speed mess — and an int16 body would just be noise. The producer
+    // stamps `format` and `layout` on every event precisely so this can be checked once per run.
+    var fmt = d.format || 'f32le', lay = d.layout || 'planar';
+    if ((fmt !== 'f32le' || lay !== 'planar') && !r.warnedFormat) {
+      r.warnedFormat = true;
+      note('REFUSING to decode: producer sent format=' + fmt + ' layout=' + lay
+         + ', this player only reads f32le/planar. Update player.html to match mm3_stream.py.');
+    }
+    if (r.warnedFormat) return;
+
+    var st = stageOf(d);
+    st.chunkCount = Math.max(st.chunkCount, d.index + 1);
+    if (num(d.channels)) st.channels = d.channels;
+    if (num(d.expected_chunks)) st.expectedChunks = d.expected_chunks;
+    if (num(d.expected_seconds)) st.expectedSeconds = d.expected_seconds;
+    if (r.cursor.streamId === null) r.cursor = { streamId: st.streamId, index: st.firstIndex };
+
+    var key = st.streamId + '#' + d.index;
+    if (!r.slots.has(key) && d.index >= st.firstIndex && !isPast(r, st, d.index)) {
+      r.slots.set(key, PENDING);
+      fetchChunk(r, {
+        stream_id: st.streamId, seq: st.seq, index: d.index,
+        ch: num(d.channels) || DEFAULT_CH, samples: num(d.samples) || 0, tries: 0, url: chunkURL(d)
+      });
+    }
+    backfill(r, st);
+    drain();
+  }
+
+  function onStream(d) {
+    if (!d || d.stream_id == null) return;
+    var id = String(d.run_id);
+    if (!run || run.id !== id) {
+      if (d.state !== 'start') return;             // an end for a run we never saw; nothing to do
+      resetRun(id);
+    }
+    var r = run;
+    if (r.sampleRate === null && num(d.sample_rate)) r.sampleRate = d.sample_rate;
+    // A repeated "start" is an UPDATE (mm3_stream re-announces once the pipeline's real rate is known), never
+    // a reset: stageOf returns the existing stage and we only refresh fields.
+    var st = stageOf(d);
+    if (num(d.seq) !== null) st.seq = d.seq;
+    if (num(d.sample_rate)) st.sampleRate = d.sample_rate;
+    if (num(d.channels)) st.channels = d.channels;
+    if (num(d.rewind_seconds) !== null) st.rewind = d.rewind_seconds;
+    if (num(d.expected_chunks)) st.expectedChunks = d.expected_chunks;
+    if (num(d.expected_seconds)) st.expectedSeconds = d.expected_seconds;
+    if (num(d.first_index) !== null) st.firstIndex = Math.max(st.firstIndex, d.first_index);
+    if (num(d.chunk_count) !== null) st.chunkCount = Math.max(st.chunkCount, d.chunk_count);
+    if (d.state === 'end') {
+      st.closed = true;
+      st.status = d.status || 'ok';
+      if (st.status === 'error') note('stage ' + st.seq + ' failed: ' + (d.message || 'unknown'));
+      else if (st.status === 'empty') note('stage ' + st.seq + ' added nothing (song had already ended).');
+      if (st.rewind) note('stage ' + st.seq + ' rewound ' + st.rewind + ' s — the live listen replays that '
+                        + 'stretch as newly generated audio; the saved song does not.');
+    }
+    if (r.cursor.streamId === null && r.order.length) {
+      var f = r.stages.get(r.order[0]);
+      r.cursor = { streamId: f.streamId, index: f.firstIndex };
+    }
+    backfill(r, st);
+    drain();
+  }
+
+  // Catch-up: merge everything the store still holds. Called AFTER the socket is registered, never before.
+  async function snapshot() {
+    try {
+      var res = await fetch(apiRoot() + '/mm3/streams', { cache: 'no-store', credentials: 'same-origin' });
+      if (!res.ok) return;
+      var snap = await res.json();
+      var list = (snap && snap.streams) || [];
+      for (var i = 0; i < list.length; i++) {
+        var s = list[i];
+        onStream(Object.assign({}, s, { state: s.open ? 'start' : 'end' }));
+        var r = run;
+        if (!r || r.id !== String(s.run_id)) continue;
+        var st = r.stages.get(s.stream_id);
+        if (!st) continue;
+        var chunks = s.chunks || [];
+        for (var j = 0; j < chunks.length; j++) want(r, st, chunks[j].index, s.channels, chunks[j].samples);
+      }
+      drain();
+    } catch (e) { /* the websocket is the primary path; a failed catch-up is not fatal */ }
+  }
+
+  function onMessage(ev) {
+    // ComfyUI also pushes binary preview frames; ignore anything that is not JSON text.
+    if (typeof ev.data !== 'string') return;
+    var msg;
+    try { msg = JSON.parse(ev.data); } catch (e) { return; }
+    if (!msg || typeof msg.type !== 'string') return;
+    var d = msg.data || {};
+    if (msg.type === 'mm3.chunk') onChunk(d);
+    else if (msg.type === 'mm3.stream') onStream(d);
+    else if (msg.type === 'status' && d.status && d.status.exec_info) {
+      // Broadcast (server.py:1396-1397), unlike execution_start/executing/execution_success which are
+      // addressed to the executing client only. Display hint only — never used for scheduling.
+      queueRemaining = num(d.status.exec_info.queue_remaining);
+    }
+  }
+
+  function connect() {
+    var proto = location.protocol === 'https:' ? 'wss:' : 'ws:';
+    // NO clientId: server.py:274-276 pops any socket whose clientId matches, so borrowing the ComfyUI tab's
+    // id would disconnect it. Without one we get a fresh uuid sid and still receive every sid=None broadcast.
+    var url = proto + '//' + location.host + apiRoot() + '/ws';
+    try { ws = new WebSocket(url); }
+    catch (e) { scheduleReconnect(); return; }
+    ws.onopen = function () {
+      wsRetry = 0;
+      // Subscribe first, snapshot second. The other order loses any chunk pushed in the gap between the
+      // snapshot being taken under the store's lock and this socket being registered — a silent 4 s hole.
+      snapshot();
+    };
+    ws.onmessage = onMessage;
+    ws.onclose = function () { ws = null; scheduleReconnect(); };
+    ws.onerror = function () { try { ws.close(); } catch (e) {} };
+  }
+  function scheduleReconnect() {
+    clearTimeout(wsTimer);
+    var delay = Math.min(500 * Math.pow(2, wsRetry++), 8000);
+    wsTimer = setTimeout(connect, delay);
+  }
+
+  // ---- transport ------------------------------------------------------------------------------------------
+  var ICON_PLAY = '<svg viewBox="0 0 24 24" width="26" height="26" fill="currentColor" aria-hidden="true">'
+    + '<path d="M8 5.2v13.6a1 1 0 0 0 1.54.84l10.2-6.8a1 1 0 0 0 0-1.68L9.54 4.36A1 1 0 0 0 8 5.2Z"/></svg>';
+  var ICON_PAUSE = '<svg viewBox="0 0 24 24" width="26" height="26" fill="currentColor" aria-hidden="true">'
+    + '<rect x="7" y="5" width="4" height="14" rx="1.3"/><rect x="13" y="5" width="4" height="14" rx="1.3"/></svg>';
+
+  // Chromium refuses to start an AudioContext without a gesture, so this is the gate. Pausing uses suspend(),
+  // which freezes ctx.currentTime — every already-scheduled source stays aligned across a pause of any length.
+  async function togglePlay() {
+    if (!ctx && !initAudio()) return;
+    if (!playing) {
+      try { await ctx.resume(); }
+      catch (e) { note('audio could not start: ' + e.message); return; }
+      playing = true;
+      flush();
+    } else {
+      playing = false;
+      try { await ctx.suspend(); } catch (e) {}
+    }
+  }
+
+  el.playBtn.addEventListener('click', togglePlay);
+  el.vol.addEventListener('input', function () {
+    vol = Number(el.vol.value) / 100;
+    if (gain) gain.gain.setTargetAtTime(vol, ctx.currentTime, 0.01);
+  });
+  window.addEventListener('keydown', function (e) {
+    if (e.code !== 'Space' && e.key !== ' ') return;
+    var t = e.target;
+    if (t && (t.tagName === 'INPUT' || t.tagName === 'BUTTON' || t.tagName === 'TEXTAREA')) return;
+    e.preventDefault();
+    togglePlay();
+  });
+
+  // ---- render ---------------------------------------------------------------------------------------------
+  var STATES = {
+    offline: 'reconnecting', idle: 'waiting for a run', waiting: 'rendering first section',
+    streaming: 'streaming', between: 'between stages', complete: 'complete', error: 'stage failed'
+  };
+  function statusKey() {
+    if (!ws || ws.readyState !== 1) return 'offline';
+    if (!run || !run.order.length) return 'idle';
+    var open = run.order.some(function (k) { return !run.stages.get(k).closed; });
+    var failed = run.order.some(function (k) { return run.stages.get(k).status === 'error'; });
+    if (run.readySeconds === 0) return open ? 'waiting' : (failed ? 'error' : 'complete');
+    if (open) return 'streaming';
+    // Every known stage is closed. queue_remaining is broadcast, so 0 means the graph really is finished
+    // rather than about to open the next stage.
+    if (queueRemaining === 0) return failed ? 'error' : 'complete';
+    return 'between';
+  }
+
+  function stageLabel(st) {
+    return (st.kind === 'generate' ? 'generate' : 'extend') + ' #' + st.seq;
+  }
+
+  var lastStageKey = '', tickKey = '', iconKey = null, statusCache = '';
+  function render() {
+    var key = statusKey();
+    if (key !== statusCache) {
+      statusCache = key;
+      el.status.textContent = STATES[key];
+      el.status.className = 'pill pill-' + key;
+    }
+
+    var pos = position();
+    var recv = run ? run.readySeconds : 0;
+    var expected = 0;
+    if (run) for (var k of run.order) expected += run.stages.get(k).expectedSeconds || 0;
+    var scale = Math.max(recv, expected, 1);
+
+    el.playBar.style.width = (100 * pos / scale) + '%';
+    el.bufBar.style.width = (100 * recv / scale) + '%';
+    el.headMark.style.left = (100 * pos / scale) + '%';
+    el.headMark.style.opacity = started ? '1' : '0';
+
+    el.elapsed.textContent = fmt(pos);
+    el.total.textContent = fmt(recv);
+    el.expected.textContent = expected ? 'of ~' + fmt(expected) + ' planned' : '';
+
+    // The number that matters for a generator running at ~1.14x realtime.
+    var ahead = Math.max(0, recv - pos);
+    el.aheadVal.textContent = ahead.toFixed(1) + ' s';
+    el.aheadBar.style.width = Math.min(100, 100 * ahead / AHEAD_SCALE) + '%';
+    el.aheadBar.className = 'meterfill ' + (ahead < 1 ? 'lo' : (ahead < 3 ? 'mid' : 'hi'));
+
+    el.sStages.textContent = run ? String(run.order.length) : '0';
+    el.sChunks.textContent = run ? String(run.playedChunks) : '0';
+    el.sRebuf.textContent = String(rebuffers);
+    el.sDrop.textContent = run ? String(run.dropped) : '0';
+    el.sFirst.textContent = (run && run.firstAudioAt !== null)
+      ? ((run.firstAudioAt - run.startedAt) / 1000).toFixed(1) + ' s' : '--';
+
+    if (iconKey !== playing) {
+      iconKey = playing;
+      el.playBtn.innerHTML = playing ? ICON_PAUSE : ICON_PLAY;
+      el.playBtn.setAttribute('aria-label', playing ? 'Pause' : 'Play');
+      el.playBtn.classList.toggle('is-playing', playing);
+    }
+
+    var nk = (run ? run.boundaries.length : 0) + ':' + scale.toFixed(3);
+    if (nk !== tickKey) {
+      tickKey = nk;
+      var html = '';
+      if (run) {
+        for (var i = 0; i < run.boundaries.length - 1; i++) {
+          var b = run.boundaries[i];
+          html += '<i class="' + (b.stage ? 'stage' : '') + '" style="left:'
+                + (100 * b.t / scale).toFixed(4) + '%"></i>';
+        }
+      }
+      el.ticks.innerHTML = html;
+    }
+
+    if (run && run.order.length) {
+      var sig = run.order.map(function (k) {
+        var s = run.stages.get(k);
+        return s.seq + '/' + s.playedChunks + '/' + s.chunkCount + '/' + (s.closed ? s.status : 'open');
+      }).join('|') + '|' + (run.cursor.streamId || '');
+      if (sig !== lastStageKey) {
+        lastStageKey = sig;
+        var sr = run.sampleRate || DEFAULT_SR;
+        var rows = run.order.map(function (k) {
+          var s = run.stages.get(k);
+          var cls = s.closed ? (s.status === 'ok' ? '' : s.status) : 'open';
+          if (run.cursor.streamId === s.streamId && !s.closed) cls += ' playing';
+          var exp = s.expectedChunks ? '~' + s.expectedChunks : '?';
+          return '<div class="stage-row ' + cls + '">'
+               + '<span class="dot"></span>'
+               + '<span class="nm">' + stageLabel(s) + '</span>'
+               + '<span class="meta">node ' + s.nodeId + ' &middot; ' + s.playedChunks + ' of ' + exp
+               + ' sections' + (s.rewind ? ' &middot; rewind ' + s.rewind + 's' : '') + '</span>'
+               + '<span class="dur">' + (s.playedSamples / sr).toFixed(1) + 's'
+               + (s.closed ? '' : ' &hellip;') + '</span></div>';
+        }).join('');
+        el.stageList.innerHTML = rows;
+        el.stagesWrap.hidden = false;
+      }
+    }
+  }
+
+  // UI only. Scheduling is driven by websocket events, never by rAF, so a backgrounded tab throttles the
+  // display without ever touching playback.
+  function loop() { render(); requestAnimationFrame(loop); }
+
+  el.playBtn.innerHTML = ICON_PLAY;
+  el.foot.textContent = 'served from ' + location.origin + apiRoot()
+                      + ' · planar float32 over HTTP, scheduled with Web Audio';
+  connect();
+  requestAnimationFrame(loop);
+})();
+</script>
+</body>
+</html>
