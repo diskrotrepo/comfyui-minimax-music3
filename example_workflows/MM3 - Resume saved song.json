@@ -318,8 +318,8 @@
    "widgets_values": [
     "# Resume a saved song\n\n1. Set **path** on Load State to your song's `.mm3state` file (saved by the Song Builder as `song_<seed>.mm3state` in the output folder).\n2. Run. Extend adds `audio_duration` seconds of new music where the song left off; the new audio saves next to your other takes and the state file is re-saved, so you can run this again and again.\n\nExtend's knobs work exactly as in the Song Builder: empty prompt/lyrics inherit the song's text; `continue_from_seconds` `0` = from the end, negative backs up from the end, positive = absolute position. Note: this graph has no `song_audio` input wired, so the audio output here is just the NEW section \u2014 stitch it onto your earlier audio, or re-render the full song from the Song Builder.\n\n**Listen while it renders:** turn on Extend's **stream** toggle, **[\u25b6 open the player](http://127.0.0.1:8000/mm3/player)** (that is `/mm3/player` on whatever address and port your ComfyUI uses \u2014 swap the port if yours differs, or use the machine's LAN address to listen from a phone), and press Play before you Run \u2014 the new section plays as it is rendered rather than only at the end. Note that a streaming stage is never cached, so it re-runs on every Run.\n"
    ],
-   "color": "#432",
-   "bgcolor": "#653"
+   "color": "#223",
+   "bgcolor": "#335"
   }
  ],
  "links": [
