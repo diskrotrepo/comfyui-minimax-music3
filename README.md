@@ -98,10 +98,21 @@ generation seed** across extensions (the song's identity, used by `%seed%` filen
 Continuation prefixes replay at **prefill speed** (batched), so extending even a long song spends seconds, not
 minutes, re-reading it.
 
+### Generation speed
+
+On an RTX 5090, roughly **1x realtime** — a 60s song takes about a minute. Most of that is the autoregressive stage
+(around three quarters of it), which is why `num_inference_steps` is a weaker speed lever than it looks: halving it
+trims the flow-matching stage only, worth about 10% of the total.
+
+The **first generation after ComfyUI starts is ~10% slower** while the language model and depth decoder compile; every
+generation after that in the same session runs at full speed. Set `TORCHDYNAMO_DISABLE=1` to skip compilation
+entirely and run eagerly.
+
 ## Requirements
 
 - **NVIDIA GPU / CUDA** — mandatory (the autoregressive step needs the LLM + RVQ depth decoder co-resident on
-  CUDA). ~24 GB VRAM for the standard path (8 GB+ only with slow CPU offload).
+  CUDA). ~24 GB VRAM for the standard path, plus a preallocated KV cache that scales with song length (~0.6 GB for a
+  60s song, ~4 GB for a full six-minute one). 8 GB+ only with slow CPU offload, which skips the compiled fast path.
 - Installs the diffusers fork + `transformers`, `accelerate`, `soundfile` (see `requirements.txt`).
 
 ## Manual install (into ComfyUI's environment, e.g. Desktop's bundled venv)
