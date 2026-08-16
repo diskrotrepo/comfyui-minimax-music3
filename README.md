@@ -104,7 +104,7 @@ On an RTX 5090 a 60s song takes about **53s**. Most of that is the autoregressiv
 it), which is why `num_inference_steps` is a weaker speed lever than it looks: halving it trims the flow-matching
 stage only, worth about 10% of the total.
 
-The flow-matching transformer runs in **fp8**, which is where that stage'''s ~1.8x came from. Its output is therefore
+The flow-matching transformer runs in **fp8**, which is where that stage's ~1.8x came from. Its output is therefore
 not bit-identical to a bf16 render — the semantic codes are untouched, so it is the same performance rendered
 slightly differently. The autoregressive stage stays in bf16, where fp8 measured slower.
 
