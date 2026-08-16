@@ -115,6 +115,32 @@ The **first generation after ComfyUI starts is ~12% slower** while the language 
 flow-matching block compile; every generation after that in the same session runs at full speed. Set `TORCHDYNAMO_DISABLE=1` to skip compilation
 entirely and run eagerly.
 
+## Listening while it renders
+
+Generate and Extend each have a `stream` toggle. Turn it on and that stage's audio is pushed to a browser
+section by section, so a 60s song starts playing about **7s** in instead of after the whole render. Generation
+runs slightly faster than realtime, so once playback starts it stays ahead.
+
+**Open the player at `/mm3/player` on this ComfyUI server** — `http://127.0.0.1:8000/mm3/player` locally, or
+`http://<this-machine>:8000/mm3/player` from a phone or another computer if ComfyUI was started with
+`--listen 0.0.0.0` (the Desktop app does this by default). The page is origin-relative, so whatever address
+reached ComfyUI reaches the player. The node also has an **▶ Open player** button; in the Desktop app that
+opens your default system browser rather than an in-app tab.
+
+**Press Play before queueing** — browsers refuse to start audio without a click.
+
+In a Generate → Extend chain, every stage with `stream` on plays back to back as one continuous song. Two
+things to know:
+
+- **A streaming stage is never cached.** It has to re-run for anything to reach the player, so that stage and
+  everything downstream of it regenerates on every queue. Stream the stage you are working on; leave the rest
+  off so they stay cached.
+- **With rewind, the live listen is not the saved song.** A stage using a negative `continue_from_seconds`
+  replaces the tail of the previous one, but the player has already played it — so you hear a few seconds
+  covering the same moment twice. The saved audio is trimmed correctly and does not contain it.
+
+The audio you get back and save is identical whether streaming is on or off.
+
 ## Requirements
 
 - **NVIDIA GPU / CUDA** — mandatory (the autoregressive step needs the LLM + RVQ depth decoder co-resident on
